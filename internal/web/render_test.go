@@ -17,7 +17,7 @@ func TestAuthorizedViewListsChannels(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := b.String()
-	for _, want := range []string{"&lt;Workshop&gt;", "comments", "noforwards"} {
+	for _, want := range []string{"&lt;Workshop&gt;", "Comments", "noforwards"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)
 		}

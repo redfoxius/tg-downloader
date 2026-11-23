@@ -13,7 +13,7 @@ import (
 func TestParseSettings(t *testing.T) {
 	form := url.Values{
 		"since_days": {"30"}, "since_date": {"2026-01-15"}, "include_comments": {"on"}, "dl_video": {"on"},
-		"ext_allow": {" pdf,zip "}, "max_size_mb": {"-5"}, "concurrency": {"99"}, "export_photo": {"on"},
+		"ext_allow": {" pdf,zip "}, "max_size_mb": {"-5"}, "concurrency": {"99"}, "export_photo": {"on"}, "auto_export": {"on"},
 	}
 	r := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -29,7 +29,7 @@ func TestParseSettings(t *testing.T) {
 		t.Errorf("checkboxes: %+v", set) // unchecked boxes are absent from the form
 	case set.ExtAllow != "pdf,zip":
 		t.Errorf("ext: %q", set.ExtAllow)
-	case set.ExportComments, set.ExportVideo, set.ExportDocument, !set.ExportPhoto:
+	case set.ExportComments, set.ExportVideo, set.ExportDocument, !set.ExportPhoto, !set.AutoExport:
 		t.Errorf("export checkboxes: %+v", set)
 	case set.MaxSizeMB != 0, set.Concurrency != 16:
 		t.Errorf("clamping: %+v", set)

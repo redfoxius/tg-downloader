@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,10 +19,11 @@ import (
 )
 
 type channelView struct {
-	Channel   telegram.Channel
-	Set       storage.Settings
-	SinceDate string
-	Notice    string
+	Channel    telegram.Channel
+	Set        storage.Settings
+	SinceDate  string
+	Notice     string
+	SiteExists bool
 }
 
 // channel resolves {id} against the user's channel list (it carries the access hash).
@@ -54,6 +56,9 @@ func (s *Server) channelPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := channelView{Channel: ch, Set: set, Notice: r.URL.Query().Get("notice")}
+	index := filepath.Join(storage.ChannelDir(s.cfg.DataDir, ch.ID, ch.Username), "site", "index.html")
+	_, statErr := os.Stat(index)
+	v.SiteExists = statErr == nil
 	if set.SinceUnix > 0 {
 		v.SinceDate = time.Unix(set.SinceUnix, 0).Format("2006-01-02")
 	}
@@ -83,6 +88,7 @@ func parseSettings(r *http.Request) (storage.Settings, error) {
 		ExportVideo:     r.FormValue("export_video") != "",
 		ExportDocument:  r.FormValue("export_document") != "",
 		ExportPhoto:     r.FormValue("export_photo") != "",
+		AutoExport:      r.FormValue("auto_export") != "",
 	}
 	if d := r.FormValue("since_date"); d != "" {
 		t, err := time.ParseInLocation("2006-01-02", d, time.Local)
@@ -94,83 +100,78 @@ func parseSettings(r *http.Request) (storage.Settings, error) {
 	return set, nil
 }
 
-func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
+// startArchive saves the settings from the form and runs the whole pipeline in one job:
+// posts, comments, media, then (if enabled) the offline site.
+func (s *Server) startArchive(w http.ResponseWriter, r *http.Request) {
 	ch, ok := s.channel(w, r)
 	if !ok {
+		return
+	}
+	back := "/channel/" + strconv.FormatInt(ch.ID, 10)
+	fail := func(msg string) {
+		http.Redirect(w, r, back+"?notice="+url.QueryEscape(msg), http.StatusSeeOther)
+	}
+	api, ok := s.tg.API()
+	if !ok {
+		fail("not connected to Telegram yet")
 		return
 	}
 	set, err := parseSettings(r)
 	if err != nil {
-		http.Error(w, "bad date: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.store.SaveSettings(r.Context(), ch.ID, set); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/channel/"+strconv.FormatInt(ch.ID, 10), http.StatusSeeOther)
-}
-
-func (s *Server) startSync(w http.ResponseWriter, r *http.Request) {
-	s.startJob(w, r, "sync", true)
-}
-
-func (s *Server) startDownload(w http.ResponseWriter, r *http.Request) {
-	s.startJob(w, r, "download", false)
-}
-
-// startJob runs sync (posts, comments, then media) or just the media download for a channel.
-func (s *Server) startJob(w http.ResponseWriter, r *http.Request, kind string, withSync bool) {
-	ch, ok := s.channel(w, r)
-	if !ok {
-		return
-	}
-	api, ok := s.tg.API()
-	if !ok {
-		http.Error(w, "not connected", http.StatusServiceUnavailable)
+		fail("bad date: " + err.Error())
 		return
 	}
 	opt := syncer.Options{IOwnAccess: r.FormValue("i_own_access") != ""}
-	err := syncer.CheckAccess(ch, opt)
-	if err == nil {
-		src := telegram.Source{API: api}
-		dir := storage.ChannelDir(s.cfg.DataDir, ch.ID, ch.Username)
-		err = s.jobs.start(kind+" "+ch.Title, func(ctx context.Context, logf func(string, ...any)) error {
-			if withSync {
-				if err := (&syncer.Syncer{Src: src, Store: s.store}).Run(ctx, ch, opt, logf); err != nil {
-					return err
-				}
-			}
-			return (&downloader.Downloader{Fetch: src, Store: s.store}).Run(ctx, ch, dir, logf)
-		})
+	if err := syncer.CheckAccess(ch, opt); err != nil {
+		fail(err.Error())
+		return
 	}
-	back := "/channel/" + strconv.FormatInt(ch.ID, 10)
+	if s.jobs.view().Running {
+		fail(errBusy.Error())
+		return
+	}
+	if err := s.store.SaveSettings(r.Context(), ch.ID, set); err != nil {
+		fail(err.Error())
+		return
+	}
+
+	src := telegram.Source{API: api}
+	dir := storage.ChannelDir(s.cfg.DataDir, ch.ID, ch.Username)
+	err = s.jobs.start(ch.Title, func(ctx context.Context, logf func(string, ...any)) error {
+		logf("1/3 posts and comments")
+		if err := (&syncer.Syncer{Src: src, Store: s.store}).Run(ctx, ch, opt, logf); err != nil {
+			return err
+		}
+		logf("2/3 media files")
+		if err := (&downloader.Downloader{Fetch: src, Store: s.store}).Run(ctx, ch, dir, logf); err != nil {
+			return err
+		}
+		if !set.AutoExport {
+			logf("done (site generation is off in the settings)")
+			return nil
+		}
+		logf("3/3 offline site")
+		if _, err := export.Run(ctx, s.store, ch.ID, ch.Title, dir, logf); err != nil {
+			return err
+		}
+		logf("done: use \"Open site\" at the top of the page")
+		return nil
+	})
 	if err != nil {
-		back += "?notice=" + url.QueryEscape(err.Error())
+		fail(err.Error())
+		return
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
-// startExport renders the static site from what is already in the archive (no Telegram needed).
-func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
+// serveArchive exposes a channel folder (site/ and media/) so the site can be opened from the UI.
+func (s *Server) serveArchive(w http.ResponseWriter, r *http.Request) {
 	ch, ok := s.channel(w, r)
 	if !ok {
 		return
 	}
 	dir := storage.ChannelDir(s.cfg.DataDir, ch.ID, ch.Username)
-	err := s.jobs.start("export "+ch.Title, func(ctx context.Context, logf func(string, ...any)) error {
-		index, err := export.Run(ctx, s.store, ch.ID, ch.Title, dir, logf)
-		if err == nil {
-			abs, _ := filepath.Abs(index)
-			logf("open file://%s", abs)
-		}
-		return err
-	})
-	back := "/channel/" + strconv.FormatInt(ch.ID, 10)
-	if err != nil {
-		back += "?notice=" + url.QueryEscape(err.Error())
-	}
-	http.Redirect(w, r, back, http.StatusSeeOther)
+	http.StripPrefix("/archive/"+r.PathValue("id")+"/", http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
 }
 
 func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {

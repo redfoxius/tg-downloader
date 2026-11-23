@@ -1,52 +1,73 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{.Channel.Title}} — tgarchive</title>
-<style>
-body{font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1rem}
-input[type=text],input[type=number],input[type=date]{font:inherit;padding:.3rem .5rem}
-button{font:inherit;padding:.4rem .8rem}fieldset{margin:1rem 0;border:1px solid #ddd}
-label{display:block;margin:.3rem 0}.err{color:#b00020}.muted{color:#666}
-pre{background:#f6f6f6;padding:.6rem;max-height:18rem;overflow:auto;white-space:pre-wrap}
-@media(prefers-color-scheme:dark){body{background:#111;color:#ddd}pre{background:#1d1d1d}fieldset{border-color:#333}.muted{color:#999}}
-</style></head><body>
-<p><a href="/">← channels</a></p>
-<h1>{{.Channel.Title}}</h1>
-{{with .Notice}}<p class="err">{{.}}</p>{{end}}
-{{if .Channel.NoForwards}}<p class="err">🔒 This channel has content protection (noforwards). Sync only content you have legal access to.</p>{{end}}
+<title>{{.Channel.Title}} — tgarchive</title><link rel="stylesheet" href="/ui.css"></head><body>
+<header class="bar"><div class="bar-in"><a class="brand" href="/">tgarchive</a><span class="grow"></span>
+<a class="btn ghost sm" href="/" style="text-decoration:none">← All channels</a></div></header>
+<main class="wrap">
+<div class="head"><div><h1>{{.Channel.Title}}</h1>{{with .Channel.Username}}<p class="muted">@{{.}}</p>{{end}}</div>
+<span id="state" class="pill idle">Idle</span></div>
+{{with .Notice}}<div class="notice">{{.}}</div>{{end}}
+{{if .Channel.NoForwards}}<div class="notice warn"><b>Content protection is on (noforwards).</b> Archive only content you have legal access to.</div>{{end}}
+{{if .SiteExists}}<div class="card site-link" style="margin-bottom:1rem"><div><b>Offline site is ready</b><div class="muted small">Opens from this app, or from disk at data/…/site/index.html</div></div>
+<a class="btn primary" style="text-decoration:none" href="/archive/{{.Channel.ID}}/site/index.html" target="_blank">Open site</a></div>{{end}}
 
-<form method="post" action="/channel/{{.Channel.ID}}/settings">
-<fieldset><legend>Settings</legend>
-<label>Last N days (0 = no limit) <input type="number" name="since_days" min="0" value="{{.Set.SinceDays}}"></label>
-<label>Or since date <input type="date" name="since_date" value="{{.SinceDate}}"></label>
-<label><input type="checkbox" name="include_comments" {{if .Set.IncludeComments}}checked{{end}}> Save comments</label>
-<label><input type="checkbox" name="dl_video" {{if .Set.DLVideo}}checked{{end}}> Download videos</label>
-<label><input type="checkbox" name="dl_document" {{if .Set.DLDocument}}checked{{end}}> Download documents</label>
-<label><input type="checkbox" name="dl_photo" {{if .Set.DLPhoto}}checked{{end}}> Download photos</label>
-<label>Document extensions (comma-separated, empty = any) <input type="text" name="ext_allow" value="{{.Set.ExtAllow}}"></label>
-<label>Max file size, MB (0 = unlimited) <input type="number" name="max_size_mb" min="0" value="{{.Set.MaxSizeMB}}"></label>
-<label>Parallel downloads <input type="number" name="concurrency" min="1" max="16" value="{{.Set.Concurrency}}"></label>
-<label><b>Export site:</b></label>
-<label><input type="checkbox" name="export_comments" {{if .Set.ExportComments}}checked{{end}}> Show comments</label>
-<label><input type="checkbox" name="export_video" {{if .Set.ExportVideo}}checked{{end}}> Show videos</label>
-<label><input type="checkbox" name="export_document" {{if .Set.ExportDocument}}checked{{end}}> Show documents</label>
-<label><input type="checkbox" name="export_photo" {{if .Set.ExportPhoto}}checked{{end}}> Show photos</label>
-<button>Save settings</button>
-</fieldset></form>
+<form class="stack" method="post" action="/channel/{{.Channel.ID}}/archive">
+<div class="grid2">
+<section class="card"><h2>What to archive</h2><div class="fields">
+<div class="two">
+<label class="field">Last N days<input type="number" name="since_days" min="0" value="{{.Set.SinceDays}}"><span class="hint">0 = everything</span></label>
+<label class="field">Or since date<input type="date" name="since_date" value="{{.SinceDate}}"></label></div>
+<label class="check"><input type="checkbox" name="include_comments" {{if .Set.IncludeComments}}checked{{end}}> Comments</label>
+<div><span class="field" style="font-size:.9rem;font-weight:550">Files</span>
+<label class="check"><input type="checkbox" name="dl_video" {{if .Set.DLVideo}}checked{{end}}> Videos</label>
+<label class="check"><input type="checkbox" name="dl_document" {{if .Set.DLDocument}}checked{{end}}> Documents</label>
+<label class="check"><input type="checkbox" name="dl_photo" {{if .Set.DLPhoto}}checked{{end}}> Photos</label></div>
+<label class="field">Document types<input type="text" name="ext_allow" value="{{.Set.ExtAllow}}" placeholder="pdf, zip"><span class="hint">Empty = any</span></label>
+<div class="two">
+<label class="field">Max size, MB<input type="number" name="max_size_mb" min="0" value="{{.Set.MaxSizeMB}}"><span class="hint">0 = unlimited</span></label>
+<label class="field">Parallel downloads<input type="number" name="concurrency" min="1" max="16" value="{{.Set.Concurrency}}"></label></div>
+</div></section>
 
-<form method="post" action="/channel/{{.Channel.ID}}/sync">
-{{if .Channel.NoForwards}}<label><input type="checkbox" name="i_own_access"> I have legal access to this content (--i-own-access)</label>{{end}}
-<button id="sync">Sync (posts, comments, media)</button>
-<button id="dl" formaction="/channel/{{.Channel.ID}}/download">Download media only</button>
-<button id="exp" formaction="/channel/{{.Channel.ID}}/export">Export site</button>
-<button formaction="/job/cancel" formnovalidate>Cancel</button>
+<section class="card"><h2>Offline site</h2><div class="fields">
+<label class="check"><input type="checkbox" name="auto_export" {{if .Set.AutoExport}}checked{{end}}> Build the site when archiving finishes</label>
+<div><span class="field" style="font-size:.9rem;font-weight:550">Show on the site</span>
+<label class="check"><input type="checkbox" name="export_comments" {{if .Set.ExportComments}}checked{{end}}> Comments</label>
+<label class="check"><input type="checkbox" name="export_video" {{if .Set.ExportVideo}}checked{{end}}> Videos</label>
+<label class="check"><input type="checkbox" name="export_document" {{if .Set.ExportDocument}}checked{{end}}> Documents</label>
+<label class="check"><input type="checkbox" name="export_photo" {{if .Set.ExportPhoto}}checked{{end}}> Photos</label></div>
+<p class="muted small">The site uses the same date range as above.</p>
+</div></section>
+</div>
+
+<section class="card"><div class="actions">
+<button id="go" class="btn primary">Archive</button>
+<button class="btn" formaction="/job/cancel" formnovalidate>Cancel</button>
+{{if .Channel.NoForwards}}<label class="check" style="margin-left:auto"><input type="checkbox" name="i_own_access"> I have legal access to this content</label>{{end}}
+</div>
+<p class="muted small" style="margin-top:.8rem">One click does it all: new posts, comments, files, then the site. Run it again any time to update. Finished files are skipped and interrupted ones continue.</p></section>
 </form>
-<p id="job" class="muted"></p><pre id="log" hidden></pre>
+
+<section id="jobbox" class="card job" style="margin-top:1rem" hidden>
+<div class="job-top"><b id="job"></b></div>
+<div id="anim" class="bar-anim" hidden><i></i></div>
+<pre id="log" class="log"></pre></section>
+</main>
 <script>
+const $=id=>document.getElementById(id);
 async function poll(){try{
   const j=await (await fetch('/api/job')).json();
-  document.getElementById('job').textContent=j.name?(j.running?'Running: ':'Last job: ')+j.name+(j.error?' — '+j.error:''):'';
-  const l=document.getElementById('log');l.hidden=!j.log.length;l.textContent=j.log.join('\n');
-  document.getElementById('sync').disabled=j.running;document.getElementById('dl').disabled=j.running;document.getElementById('exp').disabled=j.running;
+  $('jobbox').hidden=!j.name;
+  $('job').textContent=j.name?(j.running?'Working on ':'Last run: ')+j.name:'';
+  $('anim').hidden=!j.running;
+  const s=$('state');
+  if(j.running){s.textContent='Running';s.className='pill'}
+  else if(j.error){s.textContent=j.error==='cancelled'?'Cancelled':'Failed';s.className='pill '+(j.error==='cancelled'?'warn':'err')}
+  else if(j.name){s.textContent='Done';s.className='pill'}
+  else{s.textContent='Idle';s.className='pill idle'}
+  const l=$('log'),atEnd=l.scrollTop+l.clientHeight>=l.scrollHeight-24;
+  l.textContent=(j.log||[]).join('\n')+(j.error&&!j.running?'\n'+j.error:'');
+  if(atEnd)l.scrollTop=l.scrollHeight;
+  $('go').disabled=j.running;
 }catch(e){}}
 poll();setInterval(poll,1000);
 </script>

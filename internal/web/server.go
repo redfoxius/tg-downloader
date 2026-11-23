@@ -20,8 +20,11 @@ import (
 	"github.com/redfoxius/tg-downloader/internal/telegram"
 )
 
-//go:embed templates/*.html
+//go:embed templates/*.html templates/ui.css
 var tplFS embed.FS
+
+//go:embed templates/ui.css
+var uiCSS []byte
 
 var tpl = template.Must(template.ParseFS(tplFS, "templates/*.html"))
 
@@ -49,15 +52,17 @@ func New(ctx context.Context, tg *telegram.Client, cfg *config.Config, cfgPath s
 	mux.HandleFunc("GET /{$}", s.index)
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /qr.png", s.qr)
+	mux.HandleFunc("GET /ui.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		_, _ = w.Write(uiCSS)
+	})
 	mux.HandleFunc("POST /creds", s.creds)
 	mux.HandleFunc("POST /submit", s.submit)
 	mux.HandleFunc("POST /channels/refresh", s.refresh)
 	mux.HandleFunc("POST /logout", s.logout)
 	mux.HandleFunc("GET /channel/{id}", s.channelPage)
-	mux.HandleFunc("POST /channel/{id}/settings", s.saveSettings)
-	mux.HandleFunc("POST /channel/{id}/sync", s.startSync)
-	mux.HandleFunc("POST /channel/{id}/download", s.startDownload)
-	mux.HandleFunc("POST /channel/{id}/export", s.startExport)
+	mux.HandleFunc("POST /channel/{id}/archive", s.startArchive)
+	mux.HandleFunc("GET /archive/{id}/{path...}", s.serveArchive)
 	mux.HandleFunc("POST /job/cancel", s.cancelJob)
 	mux.HandleFunc("GET /api/job", s.jobStatus)
 	return localOnly(mux)

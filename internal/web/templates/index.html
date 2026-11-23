@@ -1,41 +1,54 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>tgarchive</title>
-<style>
-body{font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1rem}
-input,button{font:inherit;padding:.4rem .6rem;margin:.2rem 0}input{width:100%;box-sizing:border-box}
-table{border-collapse:collapse;width:100%}td{padding:.3rem .5rem .3rem 0;border-bottom:1px solid #eee}.err{color:#b00020}.muted{color:#666}img{image-rendering:pixelated;max-width:100%;height:auto}
-</style></head><body>
-<h1>tgarchive</h1>
-{{with .Error}}<p class="err">{{.}}</p>{{end}}
+<title>tgarchive</title><link rel="stylesheet" href="/ui.css"></head><body>
+<header class="bar"><div class="bar-in"><a class="brand" href="/">tgarchive</a><span class="grow"></span>
+{{if eq .State "authorized"}}<div class="who"><span>Signed in as</span> <b>{{.User}}</b>
+<form class="inline" method="post" action="/logout"><button class="btn ghost sm">Log out</button></form></div>{{end}}
+</div></header>
+<main class="wrap">
+{{with .Error}}<div class="notice">{{.}}</div>{{end}}
+
 {{if eq .State "need_creds"}}
-  <p>Enter your <code>api_id</code> and <code>api_hash</code> from <a href="https://my.telegram.org">my.telegram.org</a>.</p>
-  <form method="post" action="/creds"><input name="api_id" placeholder="api_id" inputmode="numeric" required>
-  <input name="api_hash" placeholder="api_hash" required><button>Save</button></form>
-{{else if eq .State "connecting"}}<p class="muted">Connecting…</p>
+<section class="card narrow"><h1>Connect your Telegram app</h1>
+<p class="muted">Create an application at <a href="https://my.telegram.org" target="_blank" rel="noopener">my.telegram.org</a> → API development tools, then paste its credentials. They are saved only on this computer.</p>
+<form class="fields" method="post" action="/creds" style="margin-top:1rem">
+<label class="field">api_id<input type="text" name="api_id" inputmode="numeric" autocomplete="off" required></label>
+<label class="field">api_hash<input type="text" name="api_hash" autocomplete="off" required></label>
+<button class="btn primary">Save and continue</button></form></section>
+
+{{else if eq .State "connecting"}}
+<section class="card narrow"><h1>Connecting…</h1><p class="muted">Reaching Telegram. This page updates by itself.</p></section>
+
 {{else if eq .State "qr"}}
-  <p>Telegram → Settings → Devices → Link Desktop Device, then scan:</p>
-  <img id="qr" src="/qr.png" width="360" height="360" alt="login QR">
+<section class="card narrow"><h1>Scan to sign in</h1>
+<img id="qr" class="qr" src="/qr.png" width="360" height="360" alt="Telegram login QR code">
+<ol class="steps"><li>Open Telegram on your phone</li><li>Settings → Devices → Link Desktop Device</li><li>Point the camera at this code</li></ol></section>
+
 {{else if eq .State "need_phone"}}
-  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_phone">
-  <input name="value" placeholder="+380…" autofocus required><button>Send code</button></form>
+<section class="card narrow"><h1>Sign in</h1><p class="muted">Enter the phone number of your Telegram account.</p>
+<form class="fields" method="post" action="/submit" style="margin-top:1rem"><input type="hidden" name="kind" value="need_phone">
+<input type="text" name="value" placeholder="+380…" inputmode="tel" autofocus required><button class="btn primary">Send code</button></form></section>
+
 {{else if eq .State "need_code"}}
-  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_code">
-  <input name="value" placeholder="Code from Telegram" autofocus required><button>Sign in</button></form>
+<section class="card narrow"><h1>Enter the code</h1><p class="muted">Telegram sent a code to your other device or by SMS.</p>
+<form class="fields" method="post" action="/submit" style="margin-top:1rem"><input type="hidden" name="kind" value="need_code">
+<input type="text" name="value" placeholder="12345" inputmode="numeric" autocomplete="one-time-code" autofocus required><button class="btn primary">Sign in</button></form></section>
+
 {{else if eq .State "need_password"}}
-  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_password">
-  <input name="value" type="password" placeholder="2FA password" autofocus required><button>Sign in</button></form>
+<section class="card narrow"><h1>Two-step password</h1><p class="muted">This account is protected by a cloud password.</p>
+<form class="fields" method="post" action="/submit" style="margin-top:1rem"><input type="hidden" name="kind" value="need_password">
+<input type="password" name="value" placeholder="Password" autofocus required><button class="btn primary">Sign in</button></form></section>
+
 {{else if eq .State "authorized"}}
-  <p>Signed in as <b>{{.User}}</b>.
-  <form method="post" action="/channels/refresh" style="display:inline"><button>Refresh channels</button></form>
-  <form method="post" action="/logout" style="display:inline"><button>Log out</button></form></p>
-  {{with .ListErr}}<p class="err">{{.}}</p>{{end}}
-  <table>{{range .Channels}}<tr>
-    <td><a href="/channel/{{.ID}}"><b>{{.Title}}</b></a>{{with .Username}} <span class="muted">@{{.}}</span>{{end}}</td>
-    <td>{{if .HasDiscussion}}💬 comments{{else}}<span class="muted">no comments</span>{{end}}</td>
-    <td>{{if .NoForwards}}<span class="err">🔒 noforwards</span>{{end}}</td>
-  </tr>{{else}}<tr><td class="muted">No channels found.</td></tr>{{end}}</table>
+<div class="head"><div><h1>Channels</h1><p class="muted">Pick a channel to archive.</p></div>
+<form class="inline" method="post" action="/channels/refresh"><button class="btn sm">Refresh list</button></form></div>
+{{with .ListErr}}<div class="notice">{{.}}</div>{{end}}
+<div class="list">{{range .Channels}}
+<a class="row" href="/channel/{{.ID}}"><div style="min-width:0"><div class="t">{{.Title}}</div>{{with .Username}}<div class="u">@{{.}}</div>{{end}}</div>
+<div class="tags">{{if .HasDiscussion}}<span class="pill">Comments</span>{{end}}{{if .NoForwards}}<span class="pill warn">noforwards</span>{{end}}</div><span class="go">›</span></a>
+{{else}}<p class="muted">No channels found.</p>{{end}}</div>
 {{end}}
+</main>
 <script>
 const state={{.State}};
 setInterval(async()=>{try{
