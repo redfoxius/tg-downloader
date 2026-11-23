@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tgarchive</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1rem}
+input,button{font:inherit;padding:.4rem .6rem;margin:.2rem 0}input{width:100%;box-sizing:border-box}
+table{border-collapse:collapse;width:100%}td{padding:.3rem .5rem .3rem 0;border-bottom:1px solid #eee}.err{color:#b00020}.muted{color:#666}img{image-rendering:pixelated;max-width:100%;height:auto}
+</style></head><body>
+<h1>tgarchive</h1>
+{{with .Error}}<p class="err">{{.}}</p>{{end}}
+{{if eq .State "need_creds"}}
+  <p>Enter your <code>api_id</code> and <code>api_hash</code> from <a href="https://my.telegram.org">my.telegram.org</a>.</p>
+  <form method="post" action="/creds"><input name="api_id" placeholder="api_id" inputmode="numeric" required>
+  <input name="api_hash" placeholder="api_hash" required><button>Save</button></form>
+{{else if eq .State "connecting"}}<p class="muted">Connecting…</p>
+{{else if eq .State "qr"}}
+  <p>Telegram → Settings → Devices → Link Desktop Device, then scan:</p>
+  <img id="qr" src="/qr.png" width="360" height="360" alt="login QR">
+{{else if eq .State "need_phone"}}
+  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_phone">
+  <input name="value" placeholder="+380…" autofocus required><button>Send code</button></form>
+{{else if eq .State "need_code"}}
+  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_code">
+  <input name="value" placeholder="Code from Telegram" autofocus required><button>Sign in</button></form>
+{{else if eq .State "need_password"}}
+  <form method="post" action="/submit"><input type="hidden" name="kind" value="need_password">
+  <input name="value" type="password" placeholder="2FA password" autofocus required><button>Sign in</button></form>
+{{else if eq .State "authorized"}}
+  <p>Signed in as <b>{{.User}}</b>.
+  <form method="post" action="/channels/refresh" style="display:inline"><button>Refresh channels</button></form>
+  <form method="post" action="/logout" style="display:inline"><button>Log out</button></form></p>
+  {{with .ListErr}}<p class="err">{{.}}</p>{{end}}
+  <table>{{range .Channels}}<tr>
+    <td><a href="/channel/{{.ID}}"><b>{{.Title}}</b></a>{{with .Username}} <span class="muted">@{{.}}</span>{{end}}</td>
+    <td>{{if .HasDiscussion}}💬 comments{{else}}<span class="muted">no comments</span>{{end}}</td>
+    <td>{{if .NoForwards}}<span class="err">🔒 noforwards</span>{{end}}</td>
+  </tr>{{else}}<tr><td class="muted">No channels found.</td></tr>{{end}}</table>
+{{end}}
+<script>
+const state={{.State}};
+setInterval(async()=>{try{
+  const s=await (await fetch('/api/status')).json();
+  if(s.state!==state){location.reload();return}
+  const q=document.getElementById('qr'); if(q)q.src='/qr.png?'+Date.now();
+}catch(e){}},2000);
+</script>
+</body></html>
