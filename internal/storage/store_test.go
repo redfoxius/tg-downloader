@@ -34,7 +34,7 @@ func TestSettingsDefaultsAndRoundTrip(t *testing.T) {
 	if err != nil || got != DefaultSettings() {
 		t.Fatalf("defaults: %+v %v", got, err)
 	}
-	want := Settings{SinceDays: 30, IncludeComments: false, DLVideo: true, ExtAllow: "pdf,zip", MaxSizeMB: 500, Concurrency: 5}
+	want := Settings{SinceDays: 30, IncludeComments: false, DLVideo: true, ExtAllow: "pdf,zip", MaxSizeMB: 500, Concurrency: 5, AutoExport: true}
 	if err := s.SaveSettings(ctx, 1, want); err != nil {
 		t.Fatal(err)
 	}

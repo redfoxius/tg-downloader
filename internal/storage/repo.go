@@ -45,6 +45,7 @@ type Settings struct {
 	ExportVideo    bool
 	ExportDocument bool
 	ExportPhoto    bool
+	AutoExport     bool // build the site at the end of every archive run
 }
 
 // AllowsExport reports whether files of this kind are shown in the exported site.
@@ -61,7 +62,7 @@ func (s Settings) AllowsExport(kind string) bool {
 // DefaultSettings mirrors the column defaults in 001_init.sql.
 func DefaultSettings() Settings {
 	return Settings{IncludeComments: true, DLVideo: true, DLDocument: true, DLPhoto: true, Concurrency: 3,
-		ExportComments: true, ExportVideo: true, ExportDocument: true, ExportPhoto: true}
+		ExportComments: true, ExportVideo: true, ExportDocument: true, ExportPhoto: true, AutoExport: true}
 }
 
 // Cutoff returns the oldest post date to sync (the later of the two limits); zero = no limit.
@@ -112,11 +113,11 @@ func (s *Store) Settings(ctx context.Context, channelID int64) (Settings, error)
 	var v Settings
 	err := s.db.QueryRowContext(ctx, `
 SELECT since_days, since_unix, include_comments, dl_video, dl_document, dl_photo, ext_allow, max_size_mb, concurrency,
-  export_comments, export_video, export_document, export_photo
+  export_comments, export_video, export_document, export_photo, auto_export
 FROM channel_settings WHERE channel_id = ?`, channelID).
 		Scan(&v.SinceDays, &v.SinceUnix, &v.IncludeComments, &v.DLVideo, &v.DLDocument, &v.DLPhoto,
 			&v.ExtAllow, &v.MaxSizeMB, &v.Concurrency,
-			&v.ExportComments, &v.ExportVideo, &v.ExportDocument, &v.ExportPhoto)
+			&v.ExportComments, &v.ExportVideo, &v.ExportDocument, &v.ExportPhoto, &v.AutoExport)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DefaultSettings(), nil
 	}
@@ -126,17 +127,17 @@ FROM channel_settings WHERE channel_id = ?`, channelID).
 func (s *Store) SaveSettings(ctx context.Context, channelID int64, v Settings) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO channel_settings (channel_id, since_days, since_unix, include_comments, dl_video, dl_document,
-  dl_photo, ext_allow, max_size_mb, concurrency, export_comments, export_video, export_document, export_photo)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  dl_photo, ext_allow, max_size_mb, concurrency, export_comments, export_video, export_document, export_photo, auto_export)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (channel_id) DO UPDATE SET since_days = excluded.since_days, since_unix = excluded.since_unix,
   include_comments = excluded.include_comments, dl_video = excluded.dl_video, dl_document = excluded.dl_document,
   dl_photo = excluded.dl_photo, ext_allow = excluded.ext_allow, max_size_mb = excluded.max_size_mb,
   concurrency = excluded.concurrency, export_comments = excluded.export_comments,
   export_video = excluded.export_video, export_document = excluded.export_document,
-  export_photo = excluded.export_photo`,
+  export_photo = excluded.export_photo, auto_export = excluded.auto_export`,
 		channelID, v.SinceDays, v.SinceUnix, v.IncludeComments, v.DLVideo, v.DLDocument, v.DLPhoto,
 		v.ExtAllow, v.MaxSizeMB, v.Concurrency,
-		v.ExportComments, v.ExportVideo, v.ExportDocument, v.ExportPhoto)
+		v.ExportComments, v.ExportVideo, v.ExportDocument, v.ExportPhoto, v.AutoExport)
 	return err
 }
 
