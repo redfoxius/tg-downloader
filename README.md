@@ -143,3 +143,7 @@ internal/web/         local UI and job runner
 ```
 
 Tests cover storage, syncer, downloader (with a fake Telegram), export and the web handlers. Real Telegram interaction (login, `getHistory`/`getReplies`, `upload.getFile`) can only be verified with a live run.
+
+## License
+
+[MIT](LICENSE): free to use, modify and redistribute. This tool is for archiving content you have legal access to; you are responsible for how you use it.
