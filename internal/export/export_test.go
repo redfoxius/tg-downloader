@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/redfoxius/tg-downloader/internal/storage"
 )
@@ -177,5 +178,25 @@ func TestReExportReplacesSite(t *testing.T) {
 	f.run(t)
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Error("old files must not survive a re-export")
+	}
+}
+
+func TestExportFollowsDepthSetting(t *testing.T) {
+	f := newFixture(t) // posts dated 1000, 2000, 3000 (1970): all older than any "last N days"
+	ctx := context.Background()
+	recent := time.Now().Add(-24 * time.Hour).Unix()
+	_ = f.st.UpsertPost(ctx, storage.Post{ChannelID: 1, ID: 50, Date: recent, Text: "fresh post"})
+
+	set := storage.DefaultSettings()
+	set.SinceDays = 30
+	_ = f.st.SaveSettings(ctx, 1, set)
+	idx, _ := f.run(t)
+	b, _ := os.ReadFile(idx)
+	index := string(b)
+	if !strings.Contains(index, "posts/50.html") {
+		t.Error("recent post must be listed")
+	}
+	if strings.Contains(index, "posts/1.html") || strings.Contains(index, "posts/4.html") {
+		t.Errorf("posts older than the depth must not be exported:\n%s", index)
 	}
 }

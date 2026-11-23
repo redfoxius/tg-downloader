@@ -149,9 +149,13 @@ func build(ctx context.Context, st *storage.Store, channelID int64, set storage.
 		byPost[c.PostID] = append(byPost[c.PostID], c)
 	}
 
+	cutoff := set.Cutoff(time.Now()) // the site follows the same depth as the sync
 	var out []*lesson
 	groups := map[int64]*lesson{} // grouped_id -> lesson
 	for _, p := range posts {
+		if !cutoff.IsZero() && time.Unix(p.Date, 0).Before(cutoff) {
+			continue
+		}
 		var l *lesson
 		if p.GroupedID != 0 {
 			l = groups[p.GroupedID]
