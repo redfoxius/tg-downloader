@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}}</title><link rel="stylesheet" href="style.css"></head><body><main>
+<h1>{{.Title}}</h1>
+<p class="muted">{{len .Lessons}} posts · generated {{.Generated}}</p>
+<ul class="lessons">
+{{range .Lessons}}<li><span class="date">{{.Date}}</span><a href="posts/{{.ID}}.html">{{.Title}}</a>
+<span class="badges">{{if .HasVideo}}🎬 {{end}}{{if .CommentCount}}💬 {{.CommentCount}}{{end}}</span></li>
+{{else}}<li class="muted">Nothing to show yet. Sync the channel first.</li>{{end}}
+</ul></main></body></html>

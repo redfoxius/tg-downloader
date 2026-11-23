@@ -1,0 +1,19 @@
+{{define "media"}}{{range .}}{{if eq .Kind "video"}}<video controls preload="metadata" src="{{.Src}}"></video>
+{{else if eq .Kind "photo"}}<a href="{{.Src}}"><img loading="lazy" src="{{.Src}}" alt=""></a>
+{{else}}<p class="file"><a href="{{.Src}}" download>📎 {{.Name}}</a> <span class="muted">{{.Size}}</span></p>
+{{end}}{{end}}{{end}}
+{{define "comment"}}<li><div class="comment" id="c{{.ID}}">
+<div class="meta"><b>{{.Author}}</b>{{with .Username}} <span>@{{.}}</span>{{end}} · {{.Date}}</div>
+<div class="body">{{.Text}}</div>{{template "media" .Media}}</div>
+{{if .Children}}<ul class="thread">{{range .Children}}{{template "comment" .}}{{end}}</ul>{{end}}</li>{{end}}
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Lesson.Title}} — {{.Site}}</title><link rel="stylesheet" href="../style.css"></head><body><main>
+<nav class="top"><a href="../index.html">← {{.Site}}</a>
+<span>{{with .Prev}}<a href="{{.ID}}.html">‹ prev</a>{{end}}{{if and .Prev .Next}} · {{end}}{{with .Next}}<a href="{{.ID}}.html">next ›</a>{{end}}</span></nav>
+<h1>{{.Lesson.Title}}</h1><p class="muted">{{.Lesson.Date}}</p>
+{{template "media" .Lesson.Media}}
+<div class="text">{{.Lesson.Text}}</div>
+{{if .Lesson.Comments}}<h2>Comments ({{.Lesson.CommentCount}})</h2>
+<ul class="thread">{{range .Lesson.Comments}}{{template "comment" .}}{{end}}</ul>{{end}}
+</main></body></html>

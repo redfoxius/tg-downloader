@@ -1,0 +1,29 @@
+:root{--bg:#fff;--fg:#1c1c1e;--muted:#6b6b70;--line:#e3e3e6;--accent:#1a6dd6;--card:#f6f6f8}
+@media(prefers-color-scheme:dark){:root{--bg:#121214;--fg:#e6e6e8;--muted:#9a9aa0;--line:#2c2c30;--accent:#6aa9ff;--card:#1b1b1f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:50rem;margin:0 auto;padding:1.5rem 1rem 4rem}
+a{color:var(--accent)}.muted{color:var(--muted)}
+h1{font-size:1.6rem;margin:.2rem 0 1rem}
+nav.top{display:flex;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+ul.lessons{list-style:none;padding:0;margin:0}
+ul.lessons li{padding:.6rem 0;border-bottom:1px solid var(--line);display:flex;gap:.8rem;align-items:baseline}
+ul.lessons .date{color:var(--muted);font-size:.85rem;white-space:nowrap;min-width:7.5rem}
+ul.lessons .badges{margin-left:auto;white-space:nowrap;color:var(--muted);font-size:.9rem}
+.text{margin:1rem 0;overflow-wrap:anywhere}
+video,img{max-width:100%;height:auto;border-radius:6px;background:#000}
+video{width:100%;margin:.5rem 0}
+pre{background:var(--card);padding:.7rem;border-radius:6px;white-space:pre-wrap;overflow-x:auto}
+code{background:var(--card);padding:.05rem .25rem;border-radius:4px}pre code{padding:0;background:none}
+blockquote{margin:.5rem 0;padding:.1rem .8rem;border-left:3px solid var(--line);color:var(--muted)}
+.spoiler{background:var(--fg);color:var(--fg);border-radius:3px}.spoiler:hover{background:none}
+.mention,.hashtag{color:var(--accent)}
+.file{margin:.4rem 0}
+h2{font-size:1.2rem;margin-top:2.5rem;border-top:1px solid var(--line);padding-top:1rem}
+ul.thread{list-style:none;margin:0;padding:0}
+ul.thread ul.thread{margin-left:.6rem;padding-left:.8rem;border-left:2px solid var(--line)}
+.comment{padding:.5rem 0}
+.comment .meta{font-size:.85rem;color:var(--muted)}
+.comment .meta b{color:var(--fg)}
+.comment .body{margin:.2rem 0;overflow-wrap:anywhere}
+@media(max-width:34rem){ul.lessons li{flex-wrap:wrap}ul.lessons .badges{margin-left:0}}
