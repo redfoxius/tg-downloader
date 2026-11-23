@@ -15,9 +15,9 @@ browser ──> tgarchive serve (127.0.0.1) ──> Telegram
 ```
 
 1. **Log in** in the web UI (QR code or phone + code).
-2. Pick a channel and its settings (depth, comments, file types).
-3. **Sync**: posts → comments → media. Repeated syncs are incremental.
-4. **Export site**: builds the HTML from what is already in the database (no Telegram needed).
+2. Pick a channel, set what to archive (date range, comments, file types) and press **Archive**.
+3. One job does everything: posts → comments → media files → offline site (the last step can be switched off). Run it again any time: it is incremental, finished files are skipped and interrupted ones continue.
+4. **Open site** on the channel page opens the result (it is also a plain folder you can open from disk).
 
 ## Requirements
 
@@ -74,7 +74,7 @@ rate_limit: 5             # Telegram API requests per second
 
 ## Channel settings
 
-Set on the channel page and stored in the database.
+Set on the channel page, saved automatically when you press **Archive**.
 
 | Setting | Effect |
 |---------|--------|
@@ -84,7 +84,8 @@ Set on the channel page and stored in the database.
 | Document extensions | Allowed document extensions (`pdf,zip`), empty = any. Videos and photos are not filtered by extension. |
 | Max file size, MB | Size limit, 0 = unlimited. |
 | Parallel downloads | Number of simultaneous downloads (1–16). |
-| Show comments / videos / documents / photos (Export) | What the generated site shows, independent of what was downloaded. |
+| Build the site when archiving finishes | Generate the offline site as the last step of the job. |
+| Show comments / videos / documents / photos (site) | What the generated site shows, independent of what was downloaded. The site covers the same date range as the sync. |
 
 Filters are applied during sync and again right before downloading. Widening the depth triggers a rescan back to the new cutoff; narrowing it does not.
 
@@ -103,11 +104,11 @@ The site references `../../media/…`, so keep the channel folder together: you 
 - **FLOOD_WAIT** is handled by the `floodwait` middleware from `gotd/contrib`, plus a rate limit on API calls. File chunk downloads (`upload.getFile`) are excluded from the rate limit, otherwise they would be capped at ~5 MB/s across all files.
 - **Resuming:** files are written to `<name>.part`; once complete, they are `fsync`ed and renamed. An interrupted or aborted job leaves only a `.part` that continues from a 1 MB boundary next time. Already downloaded files are skipped (by presence and size). Files that failed are retried on the next run.
 - A stale `file_reference` is refreshed before each file and, if needed, in the middle of a long download.
-- One job (sync / download / export) runs at a time; it can be stopped with **Cancel**.
+- One job runs at a time; it can be stopped with **Cancel**.
 
 ## noforwards
 
-Channels with content protection (🔒 `noforwards`) are not synced until *"I have legal access to this content"* is ticked in the form. The check applies to Sync and to the standalone media download.
+Channels with content protection (`noforwards`) are not archived until *"I have legal access to this content"* is ticked in the form.
 
 ## Security
 
